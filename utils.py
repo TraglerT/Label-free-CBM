@@ -28,15 +28,18 @@ def save_target_activations(target_model, dataset, save_name, target_layers = ["
     for target_layer in target_layers:
         command = "target_model.{}.register_forward_hook(get_activation(all_features[target_layer], pool_mode))".format(target_layer)
         hooks[target_layer] = eval(command)
-    
+
     with torch.no_grad():
-        for images, labels in tqdm(DataLoader(dataset, batch_size, num_workers=8, pin_memory=True)):
-            features = target_model(images.to(device))
-    
+        #Todo Check if num_workers=8 makes problem with parallelization, since data gathering is in a hook. So maybe order of images is not preserved.
+        for images, labels in tqdm(DataLoader(dataset, batch_size, num_workers=8, pin_memory=False)):  #pin_memory=False, Workaround: otherwise VRAM memory leak.
+            # Call the model to get activations via forward_hook
+            target_model(images.to(device))
+
     for target_layer in target_layers:
         torch.save(torch.cat(all_features[target_layer]), save_names[target_layer])
         hooks[target_layer].remove()
     #free memory
+    del hooks
     del all_features
     torch.cuda.empty_cache()
     return
@@ -51,8 +54,9 @@ def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device
     save_dir = save_name[:save_name.rfind("/")]
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    with torch.no_grad():
-        for images, labels in tqdm(DataLoader(dataset, batch_size, num_workers=8, pin_memory=True)):
+    with torch.inference_mode():
+        data_loader = DataLoader(dataset, batch_size, num_workers=8, pin_memory=False)  #pin_memory=False, Workaround: otherwise VRAM memory leak.
+        for i, (images, labels) in enumerate(tqdm(data_loader)):
             features = model.encode_image(images.to(device))
             all_features.append(features.cpu())
     torch.save(torch.cat(all_features), save_name)
@@ -62,14 +66,13 @@ def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device
     return
 
 def save_clip_text_features(model, text, save_name, batch_size=1000):
-    
     if os.path.exists(save_name):
         return
     _make_save_dir(save_name)
     text_features = []
     with torch.no_grad():
         for i in tqdm(range(math.ceil(len(text)/batch_size))):
-            text_features.append(model.encode_text(text[batch_size*i:batch_size*(i+1)]))
+            text_features.append(model.encode_text(text[batch_size*i:batch_size*(i+1)]))        #ToDo how does batch_size text encoding work?
     text_features = torch.cat(text_features, dim=0)
     torch.save(text_features, save_name)
     del text_features
@@ -78,8 +81,8 @@ def save_clip_text_features(model, text, save_name, batch_size=1000):
 
 def save_activations(clip_name, target_name, target_layers, d_probe, 
                      concept_set, batch_size, device, pool_mode, save_dir):
-    
-    
+
+
     target_save_name, clip_save_name, text_save_name = get_save_names(clip_name, target_name, 
                                                                     "{}", d_probe, concept_set, 
                                                                       pool_mode, save_dir)
@@ -89,7 +92,7 @@ def save_activations(clip_name, target_name, target_layers, d_probe,
         
     if _all_saved(save_names):
         return
-    
+
     clip_model, clip_preprocess = clip.load(clip_name, device=device)
     
     if target_name.startswith("clip_"):
@@ -103,16 +106,16 @@ def save_activations(clip_name, target_name, target_layers, d_probe,
     with open(concept_set, 'r') as f: 
         words = (f.read()).split('\n')
     text = clip.tokenize(["{}".format(word) for word in words]).to(device)
-    
+
     save_clip_text_features(clip_model, text, text_save_name, batch_size)
-    
+
     save_clip_image_features(clip_model, data_c, clip_save_name, batch_size, device)
     if target_name.startswith("clip_"):
         save_clip_image_features(target_model, data_t, target_save_name, batch_size, device)
     else:
         save_target_activations(target_model, data_t, target_save_name, target_layers,
                                 batch_size, device, pool_mode)
-    
+
     return
     
     
