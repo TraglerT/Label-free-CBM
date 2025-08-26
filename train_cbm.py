@@ -17,18 +17,18 @@ parser = argparse.ArgumentParser(description='Settings for creating CBM')
 parser.add_argument("--dataset", type=str, default="cifar10")
 parser.add_argument("--concept_set", type=str, default=None, 
                     help="path to concept set name")
-parser.add_argument("--backbone", type=str, default="clip_RN50", help="Which pretrained model to use as backbone")
+parser.add_argument("--backbone", type=str, default="clip_RN50", help="Which pretrained model to use as backbone, clip_RN50, resnet18_cub, resnet18_places")
 parser.add_argument("--clip_name", type=str, default="ViT-B/16", help="Which CLIP model to use")
+parser.add_argument("--feature_layer", type=str, default='layer4',
+                    help="Which layer to collect activations from. Should be the name of second to last layer in the model")
+parser.add_argument("--activation_dir", type=str, default='saved_activations', help="save location for backbone and CLIP activations")
+parser.add_argument("--save_dir", type=str, default='saved_models', help="where to save trained models")
 
 parser.add_argument("--device", type=str, default="cuda", help="Which device to use")
 parser.add_argument("--batch_size", type=int, default=512, help="Batch size used when saving model/CLIP activations")
 parser.add_argument("--saga_batch_size", type=int, default=256, help="Batch size used when fitting final layer")
 parser.add_argument("--proj_batch_size", type=int, default=50000, help="Batch size to use when learning projection layer")
 
-parser.add_argument("--feature_layer", type=str, default='layer4', 
-                    help="Which layer to collect activations from. Should be the name of second to last layer in the model")
-parser.add_argument("--activation_dir", type=str, default='saved_activations', help="save location for backbone and CLIP activations")
-parser.add_argument("--save_dir", type=str, default='saved_models', help="where to save trained models")
 parser.add_argument("--clip_cutoff", type=float, default=0.25, help="concepts with smaller top5 clip activation will be deleted")
 parser.add_argument("--proj_steps", type=int, default=1000, help="how many steps to train the projection layer for")
 parser.add_argument("--interpretability_cutoff", type=float, default=0.45, help="concepts with smaller similarity to target concept will be deleted")
@@ -37,7 +37,6 @@ parser.add_argument("--n_iters", type=int, default=1000, help="How many iteratio
 parser.add_argument("--print", action='store_true', help="Print all concepts being deleted in this stage")
 
 def train_cbm_and_save(args):
-    
     if not os.path.exists(args.save_dir):
         os.mkdir(args.save_dir)
     if args.concept_set==None:
@@ -63,10 +62,10 @@ def train_cbm_and_save(args):
                                concept_set = args.concept_set, batch_size = args.batch_size, 
                                device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
-    target_save_name, clip_save_name, text_save_name = utils.get_save_names(args.clip_name, args.backbone, 
-                                            args.feature_layer,d_train, args.concept_set, "avg", args.activation_dir)
+    target_save_name, clip_save_name, text_save_name =          utils.get_save_names(args.clip_name, args.backbone,
+                                            args.feature_layer, d_train, args.concept_set, "avg", args.activation_dir)
     val_target_save_name, val_clip_save_name, text_save_name =  utils.get_save_names(args.clip_name, args.backbone,
-                                            args.feature_layer, d_val, args.concept_set, "avg", args.activation_dir)
+                                            args.feature_layer, d_val  , args.concept_set, "avg", args.activation_dir)
     
     #load features
     with torch.no_grad():
@@ -82,12 +81,12 @@ def train_cbm_and_save(args):
 
         text_features = torch.load(text_save_name, map_location="cpu").float()
         text_features /= torch.norm(text_features, dim=1, keepdim=True)
-        
+
         clip_features = image_features @ text_features.T
         val_clip_features = val_image_features @ text_features.T
 
         del image_features, text_features, val_image_features
-    
+
     #filter concepts not activating highly
     highest = torch.mean(torch.topk(clip_features, dim=0, k=5)[0], dim=0)
     
@@ -108,15 +107,15 @@ def train_cbm_and_save(args):
     
         clip_features = image_features @ text_features.T
         del image_features, text_features
-    
-    val_clip_features = val_clip_features[:, highest>args.clip_cutoff]
+
+    val_clip_features = val_clip_features[:, highest>args.clip_cutoff]      #ToDo why is it different from clip_features?
     
     #learn projection layer
     proj_layer = torch.nn.Linear(in_features=target_features.shape[1], out_features=len(concepts),
                                  bias=False).to(args.device)
-    opt = torch.optim.Adam(proj_layer.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(proj_layer.parameters(), lr=1e-3)
     
-    indices = [ind for ind in range(len(target_features))]
+    indices = list(range(len(target_features)))
     
     best_val_loss = float("inf")
     best_step = 0
@@ -129,8 +128,8 @@ def train_cbm_and_save(args):
         
         loss = torch.mean(loss)
         loss.backward()
-        opt.step()
-        if i%50==0 or i==args.proj_steps-1:
+        optimizer.step()
+        if i%50==0 or i==args.proj_steps-1:         #ToDo only check Val loss every 50 steps. Could do more often since it is fast.
             with torch.no_grad():
                 val_output = proj_layer(val_target_features.to(args.device).detach())
                 val_loss = -similarity_fn(val_clip_features.to(args.device).detach(), val_output)
@@ -148,8 +147,8 @@ def train_cbm_and_save(args):
                 best_weights = proj_layer.weight.clone()
             else: #stop if val loss starts increasing
                 break
-        opt.zero_grad()
-        
+        optimizer.zero_grad()
+
     proj_layer.load_state_dict({"weight":best_weights})
     print("Best step:{}, Avg val similarity:{:.4f}".format(best_step, -best_val_loss.cpu()))
     
@@ -162,7 +161,9 @@ def train_cbm_and_save(args):
     if args.print:
         for i, concept in enumerate(concepts):
             if sim[i]<=args.interpretability_cutoff:
-                print("Deleting {}, Iterpretability:{:.3f}".format(concept, sim[i]))
+                print("Deleting {}, Interpretability:{:.3f}".format(concept, sim[i]))
+            else:
+                print("--Keeping {}, Interpretability:{:.3f}".format(concept, sim[i]))
     
     concepts = [concepts[i] for i in range(len(concepts)) if interpretable[i]]
     
@@ -174,7 +175,8 @@ def train_cbm_and_save(args):
     
     train_targets = data_utils.get_targets_only(d_train)
     val_targets = data_utils.get_targets_only(d_val)
-    
+
+    #Todo Layer Normalization?
     with torch.no_grad():
         train_c = proj_layer(target_features.detach())
         val_c = proj_layer(val_target_features.detach())
