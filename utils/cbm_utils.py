@@ -2,7 +2,7 @@ import os
 import math
 import torch
 import clip
-import data_utils
+from utils import data_utils
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -20,6 +20,7 @@ def save_target_activations(target_model, dataset, save_name, target_layers = ["
         save_names[target_layer] = save_name.format(target_layer)
         
     if _all_saved(save_names):
+        print("File {} already exists, skipping text feature extraction".format(save_names))
         return
     
     all_features = {target_layer:[] for target_layer in target_layers}
@@ -49,6 +50,7 @@ def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device
     all_features = []
     
     if os.path.exists(save_name):
+        print("File {} already exists, skipping text feature extraction".format(save_name))
         return
     
     save_dir = save_name[:save_name.rfind("/")]
@@ -67,6 +69,7 @@ def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device
 
 def save_clip_text_features(model, text, save_name, batch_size=1000):
     if os.path.exists(save_name):
+        print("File {} already exists, skipping text feature extraction".format(save_name))
         return
     _make_save_dir(save_name)
     text_features = []
@@ -81,8 +84,6 @@ def save_clip_text_features(model, text, save_name, batch_size=1000):
 
 def save_activations(clip_name, target_name, target_layers, d_probe, 
                      concept_set, batch_size, device, pool_mode, save_dir):
-
-
     target_save_name, clip_save_name, text_save_name = get_save_names(clip_name, target_name, 
                                                                     "{}", d_probe, concept_set, 
                                                                       pool_mode, save_dir)
@@ -91,6 +92,7 @@ def save_activations(clip_name, target_name, target_layers, d_probe,
         save_names[target_layer] = target_save_name.format(target_layer)
         
     if _all_saved(save_names):
+        print("All activation files already exist, skipping activation extraction.")
         return
 
     clip_model, clip_preprocess = clip.load(clip_name, device=device)
@@ -107,9 +109,13 @@ def save_activations(clip_name, target_name, target_layers, d_probe,
         words = (f.read()).split('\n')
     text = clip.tokenize(["{}".format(word) for word in words]).to(device)
 
+    print("Save Clip text activations to {}".format(text_save_name))
     save_clip_text_features(clip_model, text, text_save_name, batch_size)
 
+    print("Save CLIP image activations to {}".format(clip_save_name))
     save_clip_image_features(clip_model, data_c, clip_save_name, batch_size, device)
+
+    print("Save Backbone activations to {}".format(target_save_name))
     if target_name.startswith("clip_"):
         save_clip_image_features(target_model, data_t, target_save_name, batch_size, device)
     else:

@@ -21,7 +21,16 @@ We do not provide download instructions for ImageNet data, to evaluate using you
 ### 1. Creating Concept Sets (Optional):
 A. Create initial concept set using GPT-3 - `GPT_initial_concepts.ipynb`, do this for all 3 prompt types (can be skipped if using the concept sets we have provided). NOTE: This step costs money and you will have to provide your own `openai.api_key`.
 
-B. Process and filter the conceptset by running `GPT_conceptset_processor.ipynb` (Alternatively get ConceptNet concepts by running ConceptNet_conceptset.ipynb)
+B. Process and filter the concept set by running `Conceptset_processor.ipynb` (Alternatively get ConceptNet concepts by running ConceptNet_conceptset.ipynb)
+
+#### 1.2 Any LLM Concept Set Creation:
+A. Create initial concept set using - `LLM_initial_concepts.ipynb`. Prompt and model settings are in the notebook.
+
+B. Extract the concept from the LLM output by running `LLM_concept_extraction.ipynb`.
+
+C. Process and filter the concept set by running `Conceptset_processor.ipynb` -> new concept set will be saved in `data/concept_sets/{model}_filtered_new.txt`.
+
+D. (Optional) Clear the saved clip activations for other concepts -> \saved_activations\{concept_file_name}_{clip_model}.pt" needs to be removed.
 
 ### 2. Train LF-CBM
 

@@ -80,7 +80,7 @@ def get_target_model(target_name, device):
     
     elif target_name == 'resnet18_places': 
         target_model = models.resnet18(pretrained=False, num_classes=365).to(device)
-        state_dict = torch.load('data/resnet18_places365.pth.tar')['state_dict']
+        state_dict = torch.load('../data/resnet18_places365.pth.tar')['state_dict']
         new_state_dict = {}
         for key in state_dict:
             if key.startswith('module.'):

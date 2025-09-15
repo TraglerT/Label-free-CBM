@@ -6,7 +6,7 @@ import torch
 
 import clip
 import utils
-import data_utils
+from utils import data_utils
 
 from glm_saga.elasticnet import IndexedTensorDataset, glm_saga
 from torch.utils.data import DataLoader, TensorDataset

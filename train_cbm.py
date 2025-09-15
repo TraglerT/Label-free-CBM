@@ -1,9 +1,7 @@
 import torch
 import os
 import random
-import utils
-import data_utils
-import similarity
+from utils import similarity, data_utils, cbm_utils
 import argparse
 import datetime
 import json
@@ -57,14 +55,14 @@ def train_cbm_and_save(args):
     
     #save activations and get save_paths
     for d_probe in [d_train, d_val]:
-        utils.save_activations(clip_name = args.clip_name, target_name = args.backbone, 
+        cbm_utils.save_activations(clip_name = args.clip_name, target_name = args.backbone,
                                target_layers = [args.feature_layer], d_probe = d_probe,
                                concept_set = args.concept_set, batch_size = args.batch_size, 
                                device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
-    target_save_name, clip_save_name, text_save_name =          utils.get_save_names(args.clip_name, args.backbone,
+    target_save_name, clip_save_name, text_save_name =          cbm_utils.get_save_names(args.clip_name, args.backbone,
                                             args.feature_layer, d_train, args.concept_set, "avg", args.activation_dir)
-    val_target_save_name, val_clip_save_name, text_save_name =  utils.get_save_names(args.clip_name, args.backbone,
+    val_target_save_name, val_clip_save_name, text_save_name =  cbm_utils.get_save_names(args.clip_name, args.backbone,
                                             args.feature_layer, d_val  , args.concept_set, "avg", args.activation_dir)
     
     #load features
