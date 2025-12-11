@@ -30,7 +30,7 @@ B. Extract the concept from the LLM output by running `LLM_concept_extraction.ip
 
 C. Process and filter the concept set by running `Conceptset_processor.ipynb` -> new concept set will be saved in `data/concept_sets/{model}_filtered_new.txt`.
 
-D. (Optional) Clear the saved clip activations for other concepts -> \saved_activations\{concept_file_name}_{clip_model}.pt" needs to be removed.
+D. (Optional) Clear the saved clip activations for other concepts -> any file including the clip file needs to be deleted (i.e. any file ending in "ViT-B16.pt").
 
 ### 2. Train LF-CBM
 

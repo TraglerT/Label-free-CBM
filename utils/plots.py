@@ -4,7 +4,7 @@ from matplotlib import pyplot as pl
 
 import colors
 
-def bar(contributions, feature_names,  max_display=10, show=True, title=None, fontsize=13):
+def bar(contributions, feature_names,  max_display=10, show=True, title=None, fontsize=13, do_print=False):
 
     values = contributions
 
@@ -117,7 +117,10 @@ def bar(contributions, feature_names,  max_display=10, show=True, title=None, fo
     pl.xlabel(xlabel, fontsize=fontsize)
     if title:
         pl.title(title, fontsize=fontsize)
-    
+
+    if do_print:
+        pl.savefig("test\\feature_importances.png", bbox_inches='tight')
+
     if show:
         pl.show()
 
