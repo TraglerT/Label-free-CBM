@@ -88,13 +88,14 @@ def train_cbm_and_save(args):
     #filter concepts not activating highly
     highest = torch.mean(torch.topk(clip_features, dim=0, k=5)[0], dim=0)
 
-    num_concepts_prev = len(concepts)
+    num_concepts_prev_clip = len(concepts)
     if args.print:
         for i, concept in enumerate(concepts):
             if highest[i]<=args.clip_cutoff:
                 print("Deleting {}, CLIP top5:{:.3f}".format(concept, highest[i]))
     concepts = [concepts[i] for i in range(len(concepts)) if highest[i]>args.clip_cutoff]
-    print("Kept {}/{} concepts with CLIP cutoff {:.2f}".format(len(concepts), num_concepts_prev, args.clip_cutoff))
+    num_concepts_past_clip = len(concepts)
+    print("Kept {}/{} concepts with CLIP cutoff {:.2f}".format(num_concepts_past_clip, num_concepts_prev_clip, args.clip_cutoff))
     
     #save memory by recalculating
     del clip_features
@@ -155,13 +156,12 @@ def train_cbm_and_save(args):
         proj_layer.load_state_dict({"weight":best_weights})
         print("Best Step:{}, last Avg train similarity:{:.4f}, Avg val similarity:{:.4f}".format(best_step, -best_train_loss.cpu(),
                                                                                                    -best_val_loss.cpu().item()))
-        #out_dict_projection_layer = {"best_step":best_step, "best_train_similarity":best_train_loss.cpu().item(), "best_val_similarity":best_val_loss.cpu().item()}
+        out_dict_projection_layer = {"best_step":best_step, "best_train_similarity":-best_train_loss.cpu().item(), "best_val_similarity":-best_val_loss.cpu().item()}
         #delete concepts that are not interpretable
         with torch.no_grad():
             outs = proj_layer(val_target_features.to(args.device).detach())
             sim = similarity_fn(val_clip_features.to(args.device).detach(), outs)
             interpretable = sim > args.interpretability_cutoff
-
         if args.print:
             num_concepts_prev = len(concepts)
             for i, concept in enumerate(concepts):
@@ -170,8 +170,25 @@ def train_cbm_and_save(args):
                 else:
                     print("--Keeping {}, Interpretability:{:.3f}".format(concept, sim[i]))
         concepts = [concepts[i] for i in range(len(concepts)) if interpretable[i]]
+        clip_features = clip_features[:, interpretable.to("cpu")]
+        val_clip_features = val_clip_features[:, interpretable.to("cpu")]
+        num_concepts_past_training = len(concepts)
+        out_dict_concept_set = {"Concepts before CLIP filter":num_concepts_prev_clip, "Concepts after CLIP filter":num_concepts_past_clip, "Final concepts after training":num_concepts_past_training}
         if args.print:
-            print("Run: {}, Kept {}/{} concepts".format(j+1, len(concepts), num_concepts_prev))
+            print("Run: {}, Kept {}/{} concepts".format(j+1, num_concepts_past_training, num_concepts_prev))
+
+        #Reinitialize model without removed concepts
+        W_c = proj_layer.weight[interpretable]
+        proj_layer = torch.nn.Linear(in_features=target_features.shape[1], out_features=len(concepts), bias=False).to(args.device)
+        proj_layer.load_state_dict({"weight":W_c})
+        #run model again to get final val acc
+        with torch.no_grad():
+            val_output = proj_layer(val_target_features.to(args.device).detach())
+            val_loss = -similarity_fn(val_clip_features.to(args.device).detach(), val_output)
+            val_loss = torch.mean(val_loss)
+            out_dict_projection_layer["cleaned val similarity"] = -val_loss.cpu().item()
+            if args.print:
+                print("Final ConceptLayer Validation loss:{:.4f}".format(-val_loss.cpu().item()))
 
     if args.print:
         with open("test/backup_final_concepts.txt", 'w') as f:
@@ -179,8 +196,7 @@ def train_cbm_and_save(args):
                 f.write("{}\n".format(concept))
     
     del clip_features, val_clip_features
-    
-    W_c = proj_layer.weight[interpretable]
+
     proj_layer = torch.nn.Linear(in_features=target_features.shape[1], out_features=len(concepts), bias=False)
     proj_layer.load_state_dict({"weight":W_c})
     
@@ -249,7 +265,9 @@ def train_cbm_and_save(args):
         out_dict = {}
         for key in ('lam', 'lr', 'alpha', 'time'):
             out_dict[key] = float(output_proj['path'][0][key])
-        out_dict['metrics'] = output_proj['path'][0]['metrics']
+        out_dict["concepts"] = out_dict_concept_set
+        out_dict['metrics_concept'] = out_dict_projection_layer
+        out_dict['metrics_prediction'] = output_proj['path'][0]['metrics']
         nnz = (W_g.abs() > 1e-5).sum().item()
         total = W_g.numel()
         out_dict['sparsity'] = {"Non-zero weights":nnz, "Total weights":total, "Percentage non-zero":nnz/total}
