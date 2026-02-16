@@ -31,7 +31,6 @@ def save_target_activations(target_model, dataset, save_name, target_layers = ["
         hooks[target_layer] = eval(command)
 
     with torch.no_grad():
-        #Todo Check if num_workers=8 makes problem with parallelization, since data gathering is in a hook. So maybe order of images is not preserved.
         for images, labels in tqdm(DataLoader(dataset, batch_size, num_workers=8, pin_memory=False)):  #pin_memory=False, Workaround: otherwise VRAM memory leak.
             # Call the model to get activations via forward_hook
             target_model(images.to(device))
@@ -67,15 +66,15 @@ def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device
     torch.cuda.empty_cache()
     return
 
-def save_clip_text_features(model, text, save_name, batch_size=1000):
-    if os.path.exists(save_name):
+def save_clip_text_features(model, text, save_name, batch_size=1000, force_recalculate=False):
+    if os.path.exists(save_name) and not force_recalculate:
         print("File {} already exists, skipping text feature extraction".format(save_name))
         return
     _make_save_dir(save_name)
     text_features = []
     with torch.no_grad():
         for i in tqdm(range(math.ceil(len(text)/batch_size))):
-            text_features.append(model.encode_text(text[batch_size*i:batch_size*(i+1)]))        #ToDo how does batch_size text encoding work?
+            text_features.append(model.encode_text(text[batch_size*i:batch_size*(i+1)]))
     text_features = torch.cat(text_features, dim=0)
     torch.save(text_features, save_name)
     del text_features

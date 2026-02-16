@@ -7,6 +7,7 @@ import colors
 def bar(contributions, feature_names,  max_display=10, show=True, title=None, fontsize=13, do_print=False):
 
     values = contributions
+    pl.style.use("default")
 
     # build our auto xlabel based on the transform history of the Explanation object
     
@@ -38,13 +39,22 @@ def bar(contributions, feature_names,  max_display=10, show=True, title=None, fo
     yticklabels = []
     for i in feature_inds:
         yticklabels.append(feature_names[i])
-    
+
+    #Sum for all other features
     if num_features < len(values):
-        num_cut = np.sum([1 for i in range(num_features-1, len(values))])
-        values[feature_order[num_features-1]] = np.sum([values[feature_order[i]] for i in range(num_features-1, len(values))], 0)
-    
-    if num_features < len(values):
+        #sum for non zero features
+        num_cut_significant = 0
+        sum_significant = 0
+        starting_index = num_features-1    # num_features -2 if we use significant thresholding
+        #num_cut_significant = np.sum([1 if abs(values[feature_order[i]]) > 0.1 else 0 for i in range(starting_index, len(values))])
+        #sum_significant = np.sum([values[feature_order[i]] if abs(values[feature_order[i]]) > 0.1 else 0 for i in range(starting_index, len(values))], 0)
+
+        num_cut = np.sum([1 if abs(values[feature_order[i]]) > 0 else 0 for i in range(starting_index, len(values))]) - num_cut_significant
+        values[feature_order[num_features-1]] = np.sum([values[feature_order[i]] for i in range(starting_index, len(values))], 0) - sum_significant
+
         yticklabels[-1] = "Sum of %d other features" % num_cut
+        #yticklabels[-2] = "Sum of %d significant features" % num_cut_significant
+        #values[feature_order[starting_index]] = sum_significant
 
     # compute our figure size based on how many features we are showing
     row_height = 0.55

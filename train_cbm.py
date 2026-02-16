@@ -32,6 +32,7 @@ parser.add_argument("--proj_steps", type=int, default=1000, help="how many steps
 parser.add_argument("--interpretability_cutoff", type=float, default=0.45, help="concepts with smaller similarity to target concept will be deleted")
 parser.add_argument("--lam", type=float, default=0.0007, help="Sparsity regularization parameter, higher->more sparse")
 parser.add_argument("--n_iters", type=int, default=1000, help="How many iterations to run the final layer solver for")
+parser.add_argument("--n_iters_interpretability_cutoff", type=int, default=1, help="How often to train the concept layer and then discard concept under the interpretability_cutoff")
 parser.add_argument("--print", action='store_true', help="Print all concepts being deleted in this stage")
 
 def train_cbm_and_save(args):
@@ -96,6 +97,11 @@ def train_cbm_and_save(args):
     concepts = [concepts[i] for i in range(len(concepts)) if highest[i]>args.clip_cutoff]
     num_concepts_past_clip = len(concepts)
     print("Kept {}/{} concepts with CLIP cutoff {:.2f}".format(num_concepts_past_clip, num_concepts_prev_clip, args.clip_cutoff))
+
+    if args.print:
+        with open("test/backup_afterclip_concepts.txt", 'w') as f:
+            for i, concept in enumerate(concepts):
+                f.write("{}\n".format(concept))
     
     #save memory by recalculating
     del clip_features
@@ -112,7 +118,7 @@ def train_cbm_and_save(args):
     val_clip_features = val_clip_features[:, highest>args.clip_cutoff]      #ToDo why is it different from clip_features?
     
     #learn projection layer
-    for j in range(1):      #Enable multiple interpretibility passes
+    for j in range(args.n_iters_interpretability_cutoff):      #Enable multiple interpretibility passes
         proj_layer = torch.nn.Linear(in_features=target_features.shape[1], out_features=len(concepts),
                                      bias=False).to(args.device)
         optimizer = torch.optim.Adam(proj_layer.parameters(), lr=1e-3)
