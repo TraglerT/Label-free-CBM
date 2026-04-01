@@ -3,6 +3,7 @@ import math
 import torch
 import clip
 from utils import data_utils
+from transformers import AlignProcessor, AlignModel, AutoTokenizer
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -44,21 +45,25 @@ def save_target_activations(target_model, dataset, save_name, target_layers = ["
     torch.cuda.empty_cache()
     return
 
-def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device = "cuda"):
+def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device = "cuda", clip_name=""):
     _make_save_dir(save_name)
     all_features = []
     
     if os.path.exists(save_name):
         print("File {} already exists, skipping text feature extraction".format(save_name))
         return
-    
+
     save_dir = save_name[:save_name.rfind("/")]
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     with torch.inference_mode():
         data_loader = DataLoader(dataset, batch_size, num_workers=8, pin_memory=False)  #pin_memory=False, Workaround: otherwise VRAM memory leak.
         for i, (images, labels) in enumerate(tqdm(data_loader)):
-            features = model.encode_image(images.to(device))
+            if clip_name == "ALIGN":
+                images["pixel_values"] = images["pixel_values"][0].to(device)        #weird nesting with existing dataloader -> remove extra nesting
+                features = model.get_image_features(**images)
+            else:
+                features = model.encode_image(images.to(device))
             all_features.append(features.cpu())
     torch.save(torch.cat(all_features), save_name)
     #free memory
@@ -66,15 +71,23 @@ def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device
     torch.cuda.empty_cache()
     return
 
-def save_clip_text_features(model, text, save_name, batch_size=1000, force_recalculate=False):
+def save_clip_text_features(model, text, save_name, batch_size=1000, force_recalculate=False, device=None, clip_name=""):
     if os.path.exists(save_name) and not force_recalculate:
         print("File {} already exists, skipping text feature extraction".format(save_name))
         return
     _make_save_dir(save_name)
     text_features = []
+    if clip_name == "ALIGN":
+        tokenizer = AutoTokenizer.from_pretrained("kakaobrain/align-base")
     with torch.no_grad():
         for i in tqdm(range(math.ceil(len(text)/batch_size))):
-            text_features.append(model.encode_text(text[batch_size*i:batch_size*(i+1)]))
+            if clip_name == "ALIGN":
+                text_batch = text[batch_size*i:batch_size*(i+1)]
+                inputs = tokenizer(text_batch, return_tensors="pt", padding=True)
+                inputs.to(device)
+                text_features.append(model.get_text_features(**inputs))
+            else:
+                text_features.append(model.encode_text(text[batch_size*i:batch_size*(i+1)]))
     text_features = torch.cat(text_features, dim=0)
     torch.save(text_features, save_name)
     del text_features
@@ -94,25 +107,35 @@ def save_activations(clip_name, target_name, target_layers, d_probe,
         print("All activation files already exist, skipping activation extraction.")
         return
 
-    clip_model, clip_preprocess = clip.load(clip_name, device=device)
-    
     if target_name.startswith("clip_"):
         target_model, target_preprocess = clip.load(target_name[5:], device=device)
     else:
         target_model, target_preprocess = data_utils.get_target_model(target_name, device)
+
+    with open(concept_set, 'r') as f:
+        words = (f.read()).split('\n')
+
+    print("before loading data")
+    if clip_name == "ALIGN":
+        #use Align instead of CLIP
+        clip_model = AlignModel.from_pretrained("kakaobrain/align-base")
+        clip_model.to(device)
+        clip_preprocess = AlignProcessor.from_pretrained("kakaobrain/align-base")
+        text = ["{}".format(word) for word in words]    #tokenization during inference
+    else:
+        #CLIP
+        clip_model, clip_preprocess = clip.load(clip_name, device=device)
+        text = clip.tokenize(["{}".format(word) for word in words]).to(device)
+
     #setup data
     data_c = data_utils.get_data(d_probe, clip_preprocess)
     data_t = data_utils.get_data(d_probe, target_preprocess)
 
-    with open(concept_set, 'r') as f: 
-        words = (f.read()).split('\n')
-    text = clip.tokenize(["{}".format(word) for word in words]).to(device)
-
     print("Save Clip text activations to {}".format(text_save_name))
-    save_clip_text_features(clip_model, text, text_save_name, batch_size)
+    save_clip_text_features(clip_model, text, text_save_name, batch_size, device=device, clip_name=clip_name)
 
     print("Save CLIP image activations to {}".format(clip_save_name))
-    save_clip_image_features(clip_model, data_c, clip_save_name, batch_size, device)
+    save_clip_image_features(clip_model, data_c, clip_save_name, batch_size, device=device, clip_name=clip_name)
 
     print("Save Backbone activations to {}".format(target_save_name))
     if target_name.startswith("clip_"):
