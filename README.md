@@ -1,18 +1,21 @@
-# Label-free Concept Bottleneck Models
+# Bachelor Thesis on Label-free Concept Bottleneck Models 
 
-This is the official repository for our paper [Label-Free Concept Bottleneck Models](https://openreview.net/forum?id=FlCg47MNvBA) published at ICLR 2023. LF-CBM is a new framework to transform any neural networks into an interpretable Concept Bottleneck Model (CBM) without the need for labeled concept data.
+This Thesis is based on the paper:
+T. Oikarinen, S. Das, L. Nguyen and T.-W. Weng, [*Label-free Concept Bottleneck Models*](https://openreview.net/pdf?id=FlCg47MNvBA), ICLR 2023.
 
-**Update 6/5/2023**: We have conducted a crowdsourced user study to measure the interpretability of our method, results are available in Appendix B of [our arxiv paper](https://arxiv.org/abs/2304.06129).
+The code base is built also on top of the publicly available code for the paper: https://github.com/Trustworthy-ML-Lab/Label-free-CBM
 
 <img src=data/LF-CBM_overview.jpg alt="Overview" width=655 height=400>
 
 ## Setup
 
-1. Install Python (3.9) and PyTorch (1.13).
+1. Install Python and PyTorch (Built on python 3.9.25 and pytorch 2.8).
 2. Install dependencies by running `pip install -r requirements.txt`
 3. Download pretrained models by running  `bash download_models.sh` (they will be unpacked to `saved_models`)
 4. Download and process CUB dataset by running `bash download_cub.sh` 
 5. Download ResNet18(Places365) backbone by running `bash download_rn18_places.sh`
+
+Commands and instruction to setup can be found in setup.txt
 
 We do not provide download instructions for ImageNet data, to evaluate using your own copy of ImageNet you must set the correct path in `DATASET_ROOTS["imagenet_train"]` and `DATASET_ROOTS["imagenet_val"]` variables in `data_utils.py`.
 
@@ -32,33 +35,22 @@ C. Process and filter the concept set by running `Conceptset_processor.ipynb` ->
 
 D. (Optional) Clear the saved clip activations for other concepts -> any file including the clip file needs to be deleted (i.e. any file ending in "ViT-B16.pt").
 
-### 2. Train LF-CBM
+### 3. Train LF-CBM
 
-Train a concept bottleneck model on CIFAR10 by running:
+A. Train a concept bottleneck model on CIFAR10 by running:
 
 `python train_cbm.py --concept_set data/concept_sets/cifar10_filtered.txt`
 
+B. Train a concept bottleneck model by using the provided script: train_Label-freeCBM.bat. Or train_Label-freeCBM_ALIGN.bat for training a model using the ALIGN VLM.
 
-### 3. Evaluate trained models
+
+
+### 4. Evaluate trained models
 
 Evaluate the trained models by running `evaluate_cbm.ipynb`. This measures model accuracy, creates barplots explaining individual decisions and prints final layer weights which are the basis for creating weight visualizations.
 
 Additional evaluations and reproductions of our model editing experiments are available in the notebooks of `experiments` directory.
 
-## Results
-
-High Accuracy:
-
-|                   |         |          | Dataset |           |          |
-|-------------------|---------|----------|---------|-----------|----------|
-| Model             | CIFAR10 | CIFAR100 | CUB200  | Places365 | ImageNet |
-| Standard          | 88.80%  | 70.10%   | 76.70%  | 48.56%    | 76.13%   |
-| Standard (sparse) | 82.96%  | 58.34%   | **75.96%**  | 38.46%    | **74.35%**   |
-| Label-free CBM    | **86.37%** | **65.27%**   | 74.59%  | **43.71%**   | 71.98%   |
-
-For commands to train Label-free CBM and Standard (sparse) models on all 5 datasets, see `training_commands.txt`.
-
-Explainable Decsisions:
 
 ![](data/lf_cbm_ind_decision.png)
 
@@ -71,17 +63,5 @@ Sparse final layer training: https://github.com/MadryLab/glm_saga
 Explanation bar plots adapted from: https://github.com/slundberg/shap
 
 CLIP: https://github.com/openai/CLIP
-
-## Cite this work
-T. Oikarinen, S. Das, L. Nguyen and T.-W. Weng, [*Label-free Concept Bottleneck Models*](https://openreview.net/pdf?id=FlCg47MNvBA), ICLR 2023.
-
-```
-@inproceedings{oikarinenlabel,
-  title={Label-free Concept Bottleneck Models},
-  author={Oikarinen, Tuomas and Das, Subhro and Nguyen, Lam M and Weng, Tsui-Wei},
-  booktitle={International Conference on Learning Representations},
-  year={2023}
-}
-```
 
 

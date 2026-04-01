@@ -5,7 +5,6 @@ import scipy.io
 from collections import defaultdict as ddict
 
 from utils.derm7pt_data import Derm7pt_data
-#from utils.derm7pt_hybrid import Derm7pt_data as Derm7PtHybrid
 
 #Helper Function, to load Concepts and Labels from different Datasets to check if they are suitable for a concept bottleneck model
 
@@ -26,29 +25,8 @@ def load_derm7pt_metadata(data_dir):
     y = np.array(labels)
     return X, y
 
-
-#Todo Work in progress
-# def load_derm7pt_metadata_hybrid(data_dir):
-#     #using the derm7pt dataset class to load the metadata
-#     dataset = Derm7PtHybrid(os.path.join(data_dir, "Derm7pt"))
-#     dataset.get_Data = False
-#     #dataset.metadata
-#
-#     attributes = []
-#     labels = []
-#     for _, label, concepts in dataset:
-#         attributes.append(torch.detach(concepts).numpy())
-#         labels.append(label)
-#
-#
-#     X = np.array(attributes)
-#     y = np.array(labels)
-#     return X, y
-#     print(X.shape, y.shape)
-
-
 def load_CUB_200_2011(data_dir):
-    #ToDo cite https://github.com/yewsiang/ConceptBottleneck/blob/master/CUB/data_processing.py
+    #cite https://github.com/yewsiang/ConceptBottleneck/blob/master/CUB/data_processing.py
     #Read CUB_200_2011 attribute labels
 
     uncertainty_map = {1: {1: 0, 2: 0.5, 3: 0.75, 4:1}, #calibrate main label based on uncertainty label

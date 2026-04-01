@@ -1,0 +1,15 @@
+Dataset,Concept set,# train concepts,# prediction concepts,VLM,clip_cutoff,lambda,sparsity (%),weights,clip similarity,val accuracy
+Label-free CBM,Label-free CBM,370,210,ViT-B/16,0.26,0.0002,15.18,6377,56.83,73.85
+Label-free CBM fully connected,Label-free CBM,370,211,ViT-B/16,0.26,0.0,100.0,42198,56.8,74.23
+Label-free CBM sparse,Label-free CBM,370,210,ViT-B/16,0.26,0.002,6.33,2658,56.77,71.55
+Filtered CUB Concepts,CUB attributes,124,58,ViT-B/16,0.26,0.0002,36.36,4218,59.09,71.83
+Filtered CUB Concepts sparse,CUB attributes,124,59,ViT-B/16,0.26,0.002,18.6,2195,58.63,68.07
+Unfiltered CUB Concepts,CUB attributes,312,161,ViT-B/16,0.26,0.0002,18.66,6007,59.41,73.23
+Unfiltered CUB Concepts sparse,CUB attributes,312,162,ViT-B/16,0.26,0.002,8.41,2724,59.23,70.21
+OUR model,OUR concept set,1957,666,ViT-B/16,0.26,0.0002,5.94,7914,56.7,74.73
+OUR model sparse,OUR concept set,1957,658,ViT-B/16,0.26,0.002,2.21,2912,56.85,72.95
+OUR model too sparse,OUR concept set,1957,668,ViT-B/16,0.26,0.006,1.16,1547,56.69,65.47
+Random words,random words,200,183,ViT-B/16,0.2,0.0002,18.33,6709,30.83,74.2
+ALIGN,Label-free CBM,370,232,ALIGN,0.15,0.0002,14.37,6668,60.86,74.34
+ALIGN sparse,Label-free CBM,370,231,ALIGN,0.15,0.002,6.07,2806,60.91,71.92
+ALIGN random words,random words,200,170,ALIGN,0.1,0.0002,19.06,6479,36.4,73.33
