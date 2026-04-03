@@ -115,7 +115,7 @@ def train_cbm_and_save(args):
         clip_features = image_features @ text_features.T
         del image_features, text_features
 
-    val_clip_features = val_clip_features[:, highest>args.clip_cutoff]      #ToDo why is it different from clip_features?
+    val_clip_features = val_clip_features[:, highest>args.clip_cutoff]
     
     #learn projection layer
     for j in range(args.n_iters_interpretability_cutoff):      #Enable multiple interpretibility passes
@@ -209,7 +209,6 @@ def train_cbm_and_save(args):
     train_targets = data_utils.get_targets_only(d_train)
     val_targets = data_utils.get_targets_only(d_val)
 
-    #Todo Layer Normalization?
     with torch.no_grad():
         train_c = proj_layer(target_features.detach())
         val_c = proj_layer(val_target_features.detach())
