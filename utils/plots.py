@@ -4,8 +4,13 @@ from matplotlib import pyplot as pl
 
 import colors
 
-def bar(contributions, feature_names,  max_display=10, show=True, title=None, fontsize=13, do_print=False):
-
+def bar(contributions, feature_names,  max_display=10, show=True, title=None, fontsize=13, **kwargs):
+    '''
+        kwargs:
+            do_print: whether to save the figure to a file (for testing purposes)
+            positive_bar_color: color for positive bars (default: colors.red_rgb)
+            negative_bar_color: color for negative bars (default: colors.blue_rgb)
+    '''
     values = contributions
     pl.style.use("default")
 
@@ -74,7 +79,7 @@ def bar(contributions, feature_names,  max_display=10, show=True, title=None, fo
     pl.barh(
         y_pos, values[feature_inds],
         bar_width, align='center',
-        color=[colors.blue_rgb if values[feature_inds[j]] <= 0 else colors.red_rgb for j in range(len(y_pos))],
+        color=[kwargs.get("negative_bar_color", colors.blue_rgb) if values[feature_inds[j]] <= 0 else kwargs.get("positive_bar_color", colors.red_rgb) for j in range(len(y_pos))],
         hatch=patterns[0], edgecolor=(1,1,1,0.8), label=None#f"{cohort_labels[i]} [{cohort_sizes[i] if i < len(cohort_sizes) else None}]"
     )
 
@@ -95,13 +100,13 @@ def bar(contributions, feature_names,  max_display=10, show=True, title=None, fo
         if values[ind] < 0:
             pl.text(
                 values[ind] - (5/72)*bbox_to_xscale, y_pos[j], format_value(values[ind], '%+0.02f'),
-                horizontalalignment='right', verticalalignment='center', color=colors.blue_rgb,
+                horizontalalignment='right', verticalalignment='center', color=kwargs.get("negative_bar_color", colors.blue_rgb),
                 fontsize=fontsize
             )
         else:
             pl.text(
                 values[ind] + (5/72)*bbox_to_xscale, y_pos[j], format_value(values[ind], '%+0.02f'),
-                horizontalalignment='left', verticalalignment='center', color=colors.red_rgb,
+                horizontalalignment='left', verticalalignment='center', color=kwargs.get("positive_bar_color", colors.red_rgb),
                 fontsize=fontsize
             )
 
@@ -128,7 +133,7 @@ def bar(contributions, feature_names,  max_display=10, show=True, title=None, fo
     if title:
         pl.title(title, fontsize=fontsize)
 
-    if do_print:
+    if kwargs.get("do_print", False):
         pl.savefig("test\\feature_importances.png", bbox_inches='tight')
 
     if show:
